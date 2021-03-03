@@ -1,0 +1,41 @@
+#!/bin/bash
+
+#SBATCH --job-name @NAME
+#SBATCH --output %x-%j.out
+#SBATCH --nodes=@NODES
+#SBATCH --cpus-per-task=1
+#SBATCH --ntasks-per-node=56
+###SBATCH --ntasks-per-core        #Controls the maximum number of tasks per allocated core
+###SBATCH --ntasks-per-socket      #Controls the maximum number of tasks per allocated socket
+
+#SBATCH --partition Phase_4
+#SBATCH --account GOV109199
+
+module purge
+module load compiler/intel/2021 IntelMPI/2021 hdf5/1.12 netcdf/4.7.4 adios2/2.7.1
+
+export I_MPI_FABRICS=shm:ofi
+export UCX_TLS=rc,ud,sm,self
+export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi2.so
+export I_MPI_DEBUG=10
+export I_MPI_HYDRA_BOOTSTRAP=slurm
+export I_MPI_PIN=on
+
+export EXE=/opt/ohpc/pkg/lammps/patch_10Feb2021-211-g9efc831/lmp_intel_cpu_intelmpi
+
+echo "Running on hosts: $SLURM_NODELIST"
+echo "Running on $SLURM_NNODES nodes."
+echo "Running $SLURM_NTASKS tasks."
+echo "Process Pinning is $I_MPI_PIN"
+
+SUBMIT_FILE=`scontrol show job $SLURM_JOB_ID | grep "Command=" | awk 'BEGIN {FS="="}; {print $2}'`
+
+echo "Job script is as follow"
+cat $SUBMIT_FILE
+echo "End of job script."
+
+echo "Your LAMMPS job starts at `date`"
+
+mpiexec.hydra -print-rank-map $EXE -sf @SF -nocite -var x @NX -var y @NY -var z @NZ -in @INPUT
+
+echo "Your LAMMPS job completed at `date`"
